@@ -64,12 +64,16 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ error: 'Nome de usuário deve ter entre 3 e 20 caracteres.' });
   }
 
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+  }
+
   try {
     const passwordHash = bcrypt.hashSync(password, 10);
     const stmt = db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
     const info = stmt.run(username.trim(), email.toLowerCase().trim(), passwordHash);
 
-    const user = { id: info.lastInsertRowid, username, email };
+    const user = { id: info.lastInsertRowid, username: username.trim(), email: email.toLowerCase().trim() };
     const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({ user, token });
@@ -92,7 +96,7 @@ app.post('/api/auth/login', (req, res) => {
   try {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-      return res.status(400).json({ error: 'Credenciais inválidas.' });
+      return res.status(400).json({ error: 'Credenciais inválidas. Verifique seu e-mail e senha.' });
     }
 
     const userData = { id: user.id, username: user.username, email: user.email };
@@ -104,12 +108,12 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// 3. Recuperação / Redefinição de Senha
+// 3. Recuperação de Acesso / Redefinir Senha Oficial
 app.post('/api/auth/reset-password', (req, res) => {
-  const { email, newPassword } = req.body;
+  const { email, username, newPassword } = req.body;
 
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: 'Informe o e-mail e a nova senha.' });
+  if (!email || !username || !newPassword) {
+    return res.status(400).json({ error: 'Preencha todos os campos para redefinir sua senha.' });
   }
 
   if (newPassword.length < 6) {
@@ -117,17 +121,21 @@ app.post('/api/auth/reset-password', (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    const user = db.prepare('SELECT * FROM users WHERE email = ? AND username = ?').get(
+      email.toLowerCase().trim(),
+      username.trim()
+    );
+
     if (!user) {
-      return res.status(404).json({ error: 'Nenhuma conta encontrada com este e-mail.' });
+      return res.status(404).json({ error: 'Dados não conferem. Verifique o e-mail e o nick informados.' });
     }
 
-    const newHash = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
+    const newPasswordHash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, user.id);
 
-    return res.json({ message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+    return res.json({ message: 'Senha redefinida com sucesso! Você já pode fazer login.' });
   } catch (err) {
-    return res.status(500).json({ error: 'Erro ao redefinir senha.' });
+    return res.status(500).json({ error: 'Erro ao redefinir senha no servidor.' });
   }
 });
 
@@ -425,7 +433,7 @@ app.use(express.static(distPath));
 app.use((req, res) => {
   res.sendFile(path.join(distPath, 'index.html'), (err) => {
     if (err) {
-      res.status(200).send('⚽ Servidor LobbyKick rodando!');
+      res.status(200).send('⚽ Servidor LobbyKick rodando com sucesso!');
     }
   });
 });
