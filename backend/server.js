@@ -389,16 +389,19 @@ io.on('connection', (socket) => {
 });
 
 // -------------------------------------------------------------
-// SERVIR O FRONTEND EM PRODUÇÃO (RENDER.COM)
+// SERVIR O FRONTEND (Compatível com todas as versões)
 // -------------------------------------------------------------
 const distPath = path.join(__dirname, '../frontend/dist');
 app.use(express.static(distPath));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+app.use((req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(200).send('⚽ Servidor LobbyKick rodando!');
+    }
+  });
 });
 
-// Inicia o servidor na porta do Render ou 4000
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`⚽ Servidor LobbyKick rodando com sucesso na porta ${PORT}`);
