@@ -21,7 +21,6 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
-// Limpeza forçada de salas vazias
 const pendingDeletions = new Map();
 
 function purgeEmptyLobbies() {
@@ -53,6 +52,7 @@ function authenticateToken(req, res, next) {
 // ROTAS DE AUTENTICAÇÃO
 // -------------------------------------------------------------
 
+// 1. Cadastro
 app.post('/api/auth/register', (req, res) => {
   const { username, email, password } = req.body;
 
@@ -81,6 +81,7 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
+// 2. Login
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
 
@@ -100,6 +101,33 @@ app.post('/api/auth/login', (req, res) => {
     return res.json({ user: userData, token });
   } catch (err) {
     return res.status(500).json({ error: 'Erro no servidor ao tentar login.' });
+  }
+});
+
+// 3. Recuperação / Redefinição de Senha
+app.post('/api/auth/reset-password', (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: 'Informe o e-mail e a nova senha.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres.' });
+  }
+
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    if (!user) {
+      return res.status(404).json({ error: 'Nenhuma conta encontrada com este e-mail.' });
+    }
+
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
+
+    return res.json({ message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao redefinir senha.' });
   }
 });
 
@@ -389,7 +417,7 @@ io.on('connection', (socket) => {
 });
 
 // -------------------------------------------------------------
-// SERVIR O FRONTEND (Compatível com todas as versões)
+// SERVIR O FRONTEND
 // -------------------------------------------------------------
 const distPath = path.join(__dirname, '../frontend/dist');
 app.use(express.static(distPath));
