@@ -16,13 +16,12 @@ export default function App() {
   const [activeLobbyId, setActiveLobbyId] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  
-  // Guarda a intenção do usuário antes de pedir login (null | 'create' | 'join')
-  const [pendingAction, setPendingAction] = useState(null);
 
+  // Carrega usuário salvo localmente
   useEffect(() => {
     const savedUser = localStorage.getItem('lobbykick_user');
-    if (savedUser) {
+    const token = localStorage.getItem('lobbykick_token');
+    if (savedUser && token) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (e) {
@@ -60,40 +59,23 @@ export default function App() {
     localStorage.removeItem('lobbykick_user');
     setUser(null);
     setActiveLobbyId(null);
+    setCreateModalOpen(false);
   };
 
-  // Quando o usuário clica em "ENTRAR" em uma sala
   const handleJoinLobby = (lobbyId) => {
     if (!user) {
-      setPendingAction({ type: 'join', lobbyId });
       setAuthModalOpen(true);
       return;
     }
     setActiveLobbyId(lobbyId);
   };
 
-  // Quando o usuário clica no botão "+ CRIAR LOBBY"
   const handleCreateLobbyClick = () => {
     if (!user) {
-      setPendingAction({ type: 'create' });
       setAuthModalOpen(true);
       return;
     }
     setCreateModalOpen(true);
-  };
-
-  // Quando o usuário faz login/cadastro com sucesso
-  const handleAuthSuccess = (userData) => {
-    setUser(userData);
-    
-    // Executa apenas o que o usuário realmente pretendia fazer antes de logar
-    if (pendingAction?.type === 'create') {
-      setCreateModalOpen(true);
-    } else if (pendingAction?.type === 'join') {
-      setActiveLobbyId(pendingAction.lobbyId);
-    }
-    // Se ele só clicou em "ENTRAR / CADASTRAR" no topo: pendingAction é null e NADA abre (fica na home navegando)!
-    setPendingAction(null);
   };
 
   const handleBackToLobbies = useCallback(() => {
@@ -104,7 +86,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-slate-950">
       {/* NAVBAR */}
-      <header className="w-full bg-[#070a12] border-b border-slate-800 sticky top-0 z-50 shadow-xl">
+      <header className="w-full bg-[#070a12] border-b border-slate-800 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div 
             onClick={handleBackToLobbies}
@@ -133,10 +115,7 @@ export default function App() {
               </div>
             ) : (
               <button
-                onClick={() => {
-                  setPendingAction(null); // Apenas login normal
-                  setAuthModalOpen(true);
-                }}
+                onClick={() => setAuthModalOpen(true)}
                 className="text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-4 py-2 rounded-xl transition cursor-pointer"
               >
                 ENTRAR / CADASTRAR
@@ -153,17 +132,14 @@ export default function App() {
         </div>
       </header>
 
-      {/* CONTEÚDO */}
+      {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
         {activeLobbyId ? (
           <LobbyRoom 
             lobbyId={activeLobbyId} 
             user={user} 
             onBack={handleBackToLobbies}
-            onRequestAuth={() => {
-              setPendingAction(null);
-              setAuthModalOpen(true);
-            }}
+            onRequestAuth={() => setAuthModalOpen(true)}
           />
         ) : (
           <div className="space-y-10">
@@ -180,7 +156,7 @@ export default function App() {
               </p>
             </div>
 
-            {/* SELETOR DE PLATAFORMA */}
+            {/* PLATAFORMAS */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div className="text-sm font-bold uppercase tracking-wider text-slate-400">
                 Filtrar por Plataforma:
@@ -212,7 +188,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* LISTA DE LOBBIES */}
+            {/* LOBBIES */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -296,21 +272,21 @@ export default function App() {
         )}
       </main>
 
-      {/* RODAPÉ */}
       <footer className="border-t border-slate-800 bg-[#070a12] py-6 text-center text-xs text-slate-500">
         <p>LobbyKick — Plataforma independente da comunidade eFootball. Não filiada à Konami.</p>
       </footer>
 
-      {/* MODAIS */}
+      {/* MODAL DE LOGIN (FAZ O LOGIN E FICA NA PÁGINA INICIAL) */}
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => {
-          setAuthModalOpen(false);
-          setPendingAction(null);
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={(userData) => {
+          setUser(userData);
+          setAuthModalOpen(false); // Fecha e fica na página inicial de boa!
         }}
-        onAuthSuccess={handleAuthSuccess}
       />
 
+      {/* MODAL DE CRIAR SALA (SÓ ABRE SE VOCÊ CLICAR NO BOTÃO DE CRIAR LOBBY) */}
       <CreateLobbyModal
         isOpen={createModalOpen}
         user={user}
