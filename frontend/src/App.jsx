@@ -16,6 +16,9 @@ export default function App() {
   const [activeLobbyId, setActiveLobbyId] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  
+  // Guarda a intenção do usuário antes de pedir login (null | 'create' | 'join')
+  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('lobbykick_user');
@@ -28,8 +31,10 @@ export default function App() {
     }
   }, []);
 
+  const getApiUrl = (endpoint) => window.location.port === '5173' ? `http://localhost:4000${endpoint}` : endpoint;
+
   const fetchLobbies = useCallback(() => {
-    fetch(`/api/lobbies?platform=${platform}`)
+    fetch(getApiUrl(`/api/lobbies?platform=${platform}`))
       .then((res) => res.json())
       .then((data) => setLobbies(data || []))
       .catch(console.error);
@@ -42,7 +47,8 @@ export default function App() {
   useEffect(() => {
     if (activeLobbyId) return;
 
-    const socket = io();
+    const socketUrl = window.location.port === '5173' ? 'http://localhost:4000' : undefined;
+    const socket = io(socketUrl);
     socket.on('lobbies_updated', fetchLobbies);
     socket.on('lobby_created', fetchLobbies);
 
@@ -53,22 +59,41 @@ export default function App() {
     localStorage.removeItem('lobbykick_token');
     localStorage.removeItem('lobbykick_user');
     setUser(null);
+    setActiveLobbyId(null);
   };
 
+  // Quando o usuário clica em "ENTRAR" em uma sala
   const handleJoinLobby = (lobbyId) => {
     if (!user) {
+      setPendingAction({ type: 'join', lobbyId });
       setAuthModalOpen(true);
       return;
     }
     setActiveLobbyId(lobbyId);
   };
 
+  // Quando o usuário clica no botão "+ CRIAR LOBBY"
   const handleCreateLobbyClick = () => {
     if (!user) {
+      setPendingAction({ type: 'create' });
       setAuthModalOpen(true);
       return;
     }
     setCreateModalOpen(true);
+  };
+
+  // Quando o usuário faz login/cadastro com sucesso
+  const handleAuthSuccess = (userData) => {
+    setUser(userData);
+    
+    // Executa apenas o que o usuário realmente pretendia fazer antes de logar
+    if (pendingAction?.type === 'create') {
+      setCreateModalOpen(true);
+    } else if (pendingAction?.type === 'join') {
+      setActiveLobbyId(pendingAction.lobbyId);
+    }
+    // Se ele só clicou em "ENTRAR / CADASTRAR" no topo: pendingAction é null e NADA abre (fica na home navegando)!
+    setPendingAction(null);
   };
 
   const handleBackToLobbies = useCallback(() => {
@@ -77,9 +102,9 @@ export default function App() {
   }, [fetchLobbies]);
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-slate-950">
       {/* NAVBAR */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+      <header className="w-full bg-[#070a12] border-b border-slate-800 sticky top-0 z-50 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div 
             onClick={handleBackToLobbies}
@@ -100,7 +125,7 @@ export default function App() {
                 <span className="text-sm font-bold text-white">{user.username}</span>
                 <button 
                   onClick={handleLogout}
-                  title="Sair"
+                  title="Sair da Conta"
                   className="text-slate-500 hover:text-rose-400 transition ml-2 cursor-pointer"
                 >
                   <LogOut size={16} />
@@ -108,7 +133,10 @@ export default function App() {
               </div>
             ) : (
               <button
-                onClick={() => setAuthModalOpen(true)}
+                onClick={() => {
+                  setPendingAction(null); // Apenas login normal
+                  setAuthModalOpen(true);
+                }}
                 className="text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-4 py-2 rounded-xl transition cursor-pointer"
               >
                 ENTRAR / CADASTRAR
@@ -132,13 +160,16 @@ export default function App() {
             lobbyId={activeLobbyId} 
             user={user} 
             onBack={handleBackToLobbies}
-            onRequestAuth={() => setAuthModalOpen(true)}
+            onRequestAuth={() => {
+              setPendingAction(null);
+              setAuthModalOpen(true);
+            }}
           />
         ) : (
           <div className="space-y-10">
-            {/* HERO COM NOVO SLOGAN AMIGÁVEL */}
-            <div className="text-center py-10 px-4 bg-gradient-to-b from-slate-900/60 to-transparent border border-slate-800/60 rounded-3xl relative overflow-hidden">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full mb-4">
+            {/* HERO */}
+            <div className="text-center py-10 px-4 bg-gradient-to-b from-slate-900/80 to-transparent border border-slate-800/80 rounded-3xl relative overflow-hidden">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full mb-4">
                 ⚽ Matchmaking da Comunidade eFootball
               </div>
               <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight max-w-2xl mx-auto">
@@ -149,7 +180,7 @@ export default function App() {
               </p>
             </div>
 
-            {/* FILTRO DE PLATAFORMA */}
+            {/* SELETOR DE PLATAFORMA */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div className="text-sm font-bold uppercase tracking-wider text-slate-400">
                 Filtrar por Plataforma:
@@ -181,7 +212,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* LOBBIES */}
+            {/* LISTA DE LOBBIES */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -265,16 +296,19 @@ export default function App() {
         )}
       </main>
 
-      {/* FOOTER */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-6 text-center text-xs text-slate-500">
+      {/* RODAPÉ */}
+      <footer className="border-t border-slate-800 bg-[#070a12] py-6 text-center text-xs text-slate-500">
         <p>LobbyKick — Plataforma independente da comunidade eFootball. Não filiada à Konami.</p>
       </footer>
 
       {/* MODAIS */}
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onAuthSuccess={(userData) => setUser(userData)}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setPendingAction(null);
+        }}
+        onAuthSuccess={handleAuthSuccess}
       />
 
       <CreateLobbyModal
