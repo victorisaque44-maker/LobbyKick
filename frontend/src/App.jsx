@@ -17,7 +17,6 @@ export default function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // Carrega usuário salvo localmente
   useEffect(() => {
     const savedUser = localStorage.getItem('lobbykick_user');
     const token = localStorage.getItem('lobbykick_token');
@@ -276,17 +275,17 @@ export default function App() {
         <p>LobbyKick — Plataforma independente da comunidade eFootball. Não filiada à Konami.</p>
       </footer>
 
-      {/* MODAL DE LOGIN (FAZ O LOGIN E FICA NA PÁGINA INICIAL) */}
+      {/* MODAL DE LOGIN (SÓ LOGA E FECHA, FICA NA HOME) */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={(userData) => {
           setUser(userData);
-          setAuthModalOpen(false); // Fecha e fica na página inicial de boa!
+          setAuthModalOpen(false);
         }}
       />
 
-      {/* MODAL DE CRIAR SALA (SÓ ABRE SE VOCÊ CLICAR NO BOTÃO DE CRIAR LOBBY) */}
+      {/* MODAL DE CRIAR SALA (SÓ ABRE NO CLIQUE EXPLICITO) */}
       <CreateLobbyModal
         isOpen={createModalOpen}
         user={user}
