@@ -20,14 +20,22 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
   const isHost = user && lobby && user.id === lobby.host_id;
   const isTournament = lobby && lobby.type === 'tournament';
 
+  // Endereço inteligente que funciona tanto local (5173) quanto na nuvem
+  const isDev = typeof window !== 'undefined' && window.location.port === '5173';
+  const API_BASE = isDev ? 'http://localhost:4000' : '';
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // 1. Carrega os dados da sala
   useEffect(() => {
-    fetch(`http://${window.location.hostname}:4000/api/lobbies/${lobbyId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Lobby não encontrado');
+    fetch(`${API_BASE}/api/lobbies/${lobbyId}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Lobby não encontrado');
+        }
         return res.json();
       })
       .then((data) => {
@@ -36,13 +44,16 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
         setMessages(data.messages || []);
         if (data.match_code) setMatchCode(data.match_code);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Erro ao abrir lobby:', err);
+        alert('Aviso: ' + err.message);
         onBack();
       });
-  }, [lobbyId]);
+  }, [lobbyId, API_BASE]);
 
+  // 2. Conexão em tempo real
   useEffect(() => {
-    const socket = io(`http://${window.location.hostname}:4000`);
+    const socket = io(API_BASE || undefined);
     socketRef.current = socket;
 
     socket.emit('join_lobby_room', { lobbyId, user: userRef.current });
@@ -74,7 +85,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
       }
       socket.disconnect();
     };
-  }, [lobbyId]);
+  }, [lobbyId, API_BASE]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -110,7 +121,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
   };
 
   const handleCloseLobby = () => {
-    if (confirm('Tem certeza de que deseja encerrar esta sala para todos?')) {
+    if (confirm('Deseja realmente encerrar este lobby para todos?')) {
       if (socketRef.current) {
         socketRef.current.emit('close_lobby', { lobbyId, userId: user.id });
       }
@@ -142,6 +153,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
 
   return (
     <div className="w-full space-y-6 pt-2 pb-16">
+      {/* BARRA SUPERIOR */}
       <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
         <button 
           onClick={onBack}
@@ -160,6 +172,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
         )}
       </div>
 
+      {/* CABEÇALHO */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
@@ -182,6 +195,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
         </div>
       </div>
 
+      {/* CÓDIGO + CHAT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-slate-900 border-2 border-emerald-500/30 rounded-2xl p-6 shadow-xl relative">
@@ -251,6 +265,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
             )}
           </div>
 
+          {/* JOGADORES PRESENTES */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Users size={16} /> Jogadores Presentes ({participants.length}/{lobby.max_players})
@@ -280,6 +295,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
           </div>
         </div>
 
+        {/* CHAT */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[480px]">
           <div className="pb-3 border-b border-slate-800 font-bold text-sm text-slate-300 flex items-center justify-between">
             <span>Chat da Sala</span>
