@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { ArrowLeft, Copy, Check, Send, Crown, Users, KeyRound, AlertCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Send, Crown, Users, KeyRound, AlertCircle, Trash2, Volume2, VolumeX } from 'lucide-react';
 
 export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
   const [lobby, setLobby] = useState(null);
@@ -11,6 +11,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
   const [inputMessage, setInputMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [codeError, setCodeError] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const socketRef = useRef(null);
   const userRef = useRef(user);
@@ -20,9 +21,39 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
   const isHost = user && lobby && user.id === lobby.host_id;
   const isTournament = lobby && lobby.type === 'tournament';
 
-  // Endereço inteligente que funciona tanto local (5173) quanto na nuvem
   const isDev = typeof window !== 'undefined' && window.location.port === '5173';
   const API_BASE = isDev ? 'http://localhost:4000' : '';
+
+  // Efeito sonoro nativo esportivo (Alerta de Código Disponível)
+  const playSoundAlert = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      // Acorde triunfal em 3 notas rápidas (D5 -> A5 -> D6)
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880.00, now + 0.1);
+      osc.frequency.setValueAtTime(1174.66, now + 0.2);
+
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } catch (e) {
+      console.log('Audio notice:', e);
+    }
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -51,7 +82,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
       });
   }, [lobbyId, API_BASE]);
 
-  // 2. Conexão em tempo real
+  // 2. Conexão Socket em Tempo Real
   useEffect(() => {
     const socket = io(API_BASE || undefined);
     socketRef.current = socket;
@@ -62,8 +93,10 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
       setParticipants(updatedList);
     });
 
+    // Quando o Host atualiza o código -> Toca o som de notificação!
     socket.on('match_code_updated', (newCode) => {
       setMatchCode(newCode);
+      playSoundAlert();
     });
 
     socket.on('new_message', (msg) => {
@@ -117,6 +150,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
     }
 
     socketRef.current.emit('update_match_code', { lobbyId, userId: user.id, code: inputCode.trim() });
+    playSoundAlert(); // Toca também para o Host ter a confirmação sonora
     setInputCode('');
   };
 
@@ -153,7 +187,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
 
   return (
     <div className="w-full space-y-6 pt-2 pb-16">
-      {/* BARRA SUPERIOR */}
+      {/* BARRA SUPERIOR DE AÇÕES */}
       <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md">
         <button 
           onClick={onBack}
@@ -162,17 +196,36 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
           <ArrowLeft size={16} /> SAIR DO LOBBY
         </button>
 
-        {isHost && (
-          <button 
-            onClick={handleCloseLobby}
-            className="flex items-center gap-2 text-rose-400 hover:text-white hover:bg-rose-600 transition px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 cursor-pointer text-xs font-bold"
+        <div className="flex items-center gap-2">
+          {/* Botão de Mutar/Desmutar Som */}
+          <button
+            onClick={() => {
+              setSoundEnabled(!soundEnabled);
+              if (!soundEnabled) playSoundAlert();
+            }}
+            title={soundEnabled ? "Som Ativado (Clique para mutar)" : "Som Desativado"}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+              soundEnabled 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' 
+                : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'
+            }`}
           >
-            <Trash2 size={16} /> ENCERRAR LOBBY
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            <span className="hidden sm:inline">{soundEnabled ? 'Som: Ativado' : 'Mutado'}</span>
           </button>
-        )}
+
+          {isHost && (
+            <button 
+              onClick={handleCloseLobby}
+              className="flex items-center gap-2 text-rose-400 hover:text-white hover:bg-rose-600 transition px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 cursor-pointer text-xs font-bold"
+            >
+              <Trash2 size={16} /> ENCERRAR LOBBY
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO DO LOBBY */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
@@ -195,18 +248,20 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
         </div>
       </div>
 
-      {/* CÓDIGO + CHAT */}
+      {/* CÓDIGO DA PARTIDA + CHAT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          
+          {/* CARD DO CÓDIGO COM NOTIFICAÇÃO VISUAL */}
           <div className="bg-slate-900 border-2 border-emerald-500/30 rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
               <KeyRound size={16} /> {codeLabel} no eFootball
             </div>
 
             {matchCode ? (
-              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950 p-5 rounded-xl border border-slate-800">
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
                 <div>
-                  <div className="text-2xl sm:text-4xl font-mono font-black text-white tracking-widest">
+                  <div className="text-2xl sm:text-4xl font-mono font-black text-white tracking-widest text-emerald-400">
                     {matchCode}
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
@@ -232,6 +287,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
               </div>
             )}
 
+            {/* PAINEL EXCLUSIVO DO HOST */}
             {isHost && (
               <form onSubmit={handleSendCode} className="mt-6 pt-6 border-t border-slate-800">
                 <div className="flex items-center justify-between mb-2">
@@ -258,7 +314,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
                     type="submit"
                     className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition cursor-pointer"
                   >
-                    ENVIAR
+                    ENVIAR CÓDIGO
                   </button>
                 </div>
               </form>
@@ -295,7 +351,7 @@ export default function LobbyRoom({ lobbyId, user, onBack, onRequestAuth }) {
           </div>
         </div>
 
-        {/* CHAT */}
+        {/* CHAT EM TEMPO REAL */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[480px]">
           <div className="pb-3 border-b border-slate-800 font-bold text-sm text-slate-300 flex items-center justify-between">
             <span>Chat da Sala</span>
