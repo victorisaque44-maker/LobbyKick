@@ -17,9 +17,10 @@ export default function CreateLobbyModal({ isOpen, onClose, user, onCreated }) {
     setError('');
 
     const token = localStorage.getItem('lobbykick_token');
+    const apiUrl = window.location.port === '5173' ? 'http://localhost:4000/api/lobbies' : '/api/lobbies';
 
     try {
-      const res = await fetch(`http://${window.location.hostname}:4000/api/lobbies`, {
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +52,7 @@ export default function CreateLobbyModal({ isOpen, onClose, user, onCreated }) {
         <p className="text-sm text-slate-400 mb-6">Configure seu lobby e receba jogadores para sua partida.</p>
 
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm p-3 rounded-lg mb-4">
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm p-3 rounded-lg mb-4 text-center">
             {error}
           </div>
         )}
