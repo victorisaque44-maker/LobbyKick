@@ -9,7 +9,7 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    allowedHosts: true, // Libera o túnel do Localtunnel para entrar sem bloqueio
+    allowedHosts: true,
     proxy: {
       '/api': 'http://localhost:4000',
       '/socket.io': {
