@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, Trophy, Users, Swords } from 'lucide-react';
+import { X, Trophy, Users, Swords, Globe } from 'lucide-react';
 
 export default function CreateLobbyModal({ isOpen, onClose, user, onCreated }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('1v1');
   const [platform, setPlatform] = useState('Console & PC');
   const [format, setFormat] = useState('Autenticado / Livre');
+  const [region, setRegion] = useState('🇧🇷 Brasil (SA)');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,7 +27,7 @@ export default function CreateLobbyModal({ isOpen, onClose, user, onCreated }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ name, type, platform, format })
+        body: JSON.stringify({ name, type, platform, format, region })
       });
 
       const data = await res.json();
@@ -121,16 +122,32 @@ export default function CreateLobbyModal({ isOpen, onClose, user, onCreated }) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Formato / Regra
+                Região / Servidor
               </label>
-              <input
-                type="text"
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                placeholder="Ex: 3v3 / Sem épicos"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-emerald-500 text-sm"
-              />
+              <select
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-white focus:outline-none focus:border-emerald-500 text-sm font-semibold"
+              >
+                <option value="🇧🇷 Brasil (SA)">🇧🇷 Brasil (SA)</option>
+                <option value="🌎 América do Norte (NA)">🌎 América do Norte (NA)</option>
+                <option value="🇪🇺 Europa (EU)">🇪🇺 Europa (EU)</option>
+                <option value="🌐 Global / Outros">🌐 Global / Outros</option>
+              </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Formato / Regra
+            </label>
+            <input
+              type="text"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              placeholder="Ex: 3v3 / Sem épicos"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-sm"
+            />
           </div>
 
           <button

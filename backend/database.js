@@ -4,12 +4,9 @@ const path = require('path');
 
 const db = new Database(path.join(__dirname, 'lobbykick.db'));
 
-// Habilita chaves estrangeiras no SQLite
 db.pragma('foreign_keys = ON');
 
-// Criação das tabelas essenciais
 db.exec(`
-  -- Tabela de Usuários
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -18,21 +15,20 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
-  -- Tabela de Lobbies
   CREATE TABLE IF NOT EXISTS lobbies (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,          -- '1v1', 'coop', 'tournament'
-    platform TEXT NOT NULL,      -- 'PC', 'PlayStation', 'Xbox', 'Mobile'
+    type TEXT NOT NULL,
+    platform TEXT NOT NULL,
     format TEXT DEFAULT 'Padrão',
+    region TEXT DEFAULT '🇧🇷 Brasil',
     max_players INTEGER NOT NULL,
     host_id INTEGER NOT NULL,
-    status TEXT DEFAULT 'open',  -- 'open', 'in_match', 'closed'
+    status TEXT DEFAULT 'open',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (host_id) REFERENCES users (id)
   );
 
-  -- Tabela de Participantes do Lobby
   CREATE TABLE IF NOT EXISTS lobby_participants (
     lobby_id TEXT NOT NULL,
     user_id INTEGER NOT NULL,
@@ -42,7 +38,6 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
 
-  -- Tabela de Código da Partida (Match Room Code)
   CREATE TABLE IF NOT EXISTS match_codes (
     lobby_id TEXT PRIMARY KEY,
     code TEXT NOT NULL,
@@ -50,7 +45,6 @@ db.exec(`
     FOREIGN KEY (lobby_id) REFERENCES lobbies (id) ON DELETE CASCADE
   );
 
-  -- Tabela de Mensagens do Chat
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     lobby_id TEXT NOT NULL,
